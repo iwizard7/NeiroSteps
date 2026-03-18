@@ -20,6 +20,7 @@ function App() {
   const [speed, setSpeed]           = useState(1);
   const [populationMode, setPopulationMode] = useState(DEFAULT_POPULATION);
   const [viewportH, setViewportH]   = useState(window.innerHeight);
+  const [isStatsOpen, setIsStatsOpen] = useState(false);
 
   const evoRef = useRef(null); // stable ref for callbacks
   const rapierRef = useRef(null);
@@ -233,10 +234,21 @@ function App() {
           onSetShowAll={setShowAll}
           onSetPopulationMode={handlePopulationModeChange}
           onSetSpeed={setSpeed}
+          onOpenStats={() => setIsStatsOpen(true)}
           onSave={handleSave}
           onLoad={handleLoad}
         />
       </div>
+
+      {isStatsOpen && (
+        <StatsModal
+          generation={generation}
+          stats={stats}
+          history={history}
+          populationMode={populationMode}
+          onClose={() => setIsStatsOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -246,6 +258,104 @@ function Stat({ label, value, color }) {
     <div style={{ textAlign:'right' }}>
       <p style={{ fontSize:9, color:'#475569', margin:0, letterSpacing:'0.08em' }}>{label}</p>
       <p style={{ fontSize:15, fontWeight:700, margin:0, color, lineHeight:1.1 }}>{value}</p>
+    </div>
+  );
+}
+
+function StatsModal({ generation, stats, history, populationMode, onClose }) {
+  const rows = [...history].sort((a, b) => b.gen - a.gen);
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position:'fixed', inset:0, zIndex:999,
+        background:'rgba(2,6,23,.7)',
+        backdropFilter:'blur(4px)',
+        display:'flex', alignItems:'center', justifyContent:'center',
+        padding:16,
+      }}
+    >
+      <div
+        className="glass-panel"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width:'min(760px, 100%)',
+          maxHeight:'min(80vh, 620px)',
+          display:'flex',
+          flexDirection:'column',
+          overflow:'hidden',
+          borderRadius:12,
+          border:'1px solid rgba(255,255,255,.1)',
+        }}
+      >
+        <div style={{
+          display:'flex', justifyContent:'space-between', alignItems:'center',
+          padding:'12px 14px',
+          borderBottom:'1px solid rgba(255,255,255,.08)',
+        }}>
+          <div>
+            <p style={{ fontSize:10, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.08em', margin:0 }}>Статистика обучения</p>
+            <p style={{ fontSize:12, color:'#94a3b8', margin:'2px 0 0' }}>Популяция: {populationMode} • Поколение: {generation}</p>
+          </div>
+          <button onClick={onClose} style={{
+            border:'1px solid rgba(255,255,255,.1)',
+            borderRadius:8, background:'rgba(255,255,255,.04)', color:'#cbd5e1',
+            padding:'6px 10px', fontSize:12, cursor:'pointer',
+          }}>
+            Закрыть
+          </button>
+        </div>
+
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, padding:'12px 14px', borderBottom:'1px solid rgba(255,255,255,.08)' }}>
+          <MetricCard label="Текущий лучший" value={`${stats.best.toFixed(2)} м`} color="#06b6d4" />
+          <MetricCard label="Текущий средний" value={`${stats.avg.toFixed(2)} м`} color="#8b5cf6" />
+          <MetricCard label="Завершено" value={`${history.length} ген.`} color="#94a3b8" />
+        </div>
+
+        <div style={{ overflow:'auto', padding:'8px 14px 14px' }}>
+          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+            <thead>
+              <tr style={{ color:'#64748b', textAlign:'left' }}>
+                <th style={{ padding:'8px 6px' }}>Поколение</th>
+                <th style={{ padding:'8px 6px' }}>Лучший путь</th>
+                <th style={{ padding:'8px 6px' }}>Средний путь</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={3} style={{ padding:'14px 6px', color:'#94a3b8' }}>
+                    Пока нет завершённых поколений.
+                  </td>
+                </tr>
+              ) : (
+                rows.map((row) => (
+                  <tr key={row.gen} style={{ borderTop:'1px solid rgba(255,255,255,.06)' }}>
+                    <td style={{ padding:'8px 6px', color:'#cbd5e1' }}>{row.gen}</td>
+                    <td style={{ padding:'8px 6px', color:'#22d3ee' }}>{row.best.toFixed(2)} м</td>
+                    <td style={{ padding:'8px 6px', color:'#a78bfa' }}>{row.avg.toFixed(2)} м</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MetricCard({ label, value, color }) {
+  return (
+    <div style={{
+      border:'1px solid rgba(255,255,255,.08)',
+      borderRadius:8,
+      padding:'8px 10px',
+      background:'rgba(255,255,255,.03)',
+    }}>
+      <p style={{ fontSize:10, color:'#64748b', margin:0, textTransform:'uppercase', letterSpacing:'0.08em' }}>{label}</p>
+      <p style={{ fontSize:18, fontWeight:700, margin:'2px 0 0', color }}>{value}</p>
     </div>
   );
 }

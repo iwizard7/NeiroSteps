@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Pause, Zap, Save, FolderOpen } from 'lucide-react';
+import { Play, Pause, Zap, Save, FolderOpen, ChartNoAxesCombined } from 'lucide-react';
 import EvolutionChart from './EvolutionChart';
 
 const Btn = ({ onClick, active, compact, disabled = false, children, title, style={} }) => (
@@ -23,7 +23,7 @@ const Btn = ({ onClick, active, compact, disabled = false, children, title, styl
 export default function Dashboard({
   evolution, stats, history, generation, isPaused, showAll, speed, populationMode,
   compact = false,
-  onTogglePause, onNextGen, onSetShowAll, onSetPopulationMode, onSetSpeed, onSave, onLoad,
+  onTogglePause, onNextGen, onSetShowAll, onSetPopulationMode, onSetSpeed, onSave, onLoad, onOpenStats,
 }) {
   const fileRef = React.useRef();
   const S = {
@@ -154,6 +154,9 @@ export default function Dashboard({
             {history.length > 0 && <span style={{ fontSize:9, color:'#334155' }}>{history.length} ген.</span>}
           </div>
           <div style={{ display:'flex', gap:5 }}>
+            <Btn onClick={onOpenStats} compact={compact} style={{ fontSize: compact ? 9 : 10 }}>
+              <ChartNoAxesCombined size={compact ? 10 : 11}/> Статистика
+            </Btn>
             <Btn onClick={onSave} compact={compact} style={{ fontSize: compact ? 9 : 10 }}>
               <Save size={compact ? 10 : 11}/> Сохранить
             </Btn>
