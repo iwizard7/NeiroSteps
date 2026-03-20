@@ -225,11 +225,6 @@ export class Creature {
   }
 
   dispose() {
-    // В Rapier сначала нужно удалять суставы, чтобы избежать краша (Unsafe aliasing / Unreachable code) 
-    // при удалении связанных RigidBody.
-    if (this.joints) {
-      this.joints.forEach(j => this.world.removeImpulseJoint(j));
-    }
     if (this.parts) {
       this.parts.forEach(p => this.world.removeRigidBody(p));
     }
