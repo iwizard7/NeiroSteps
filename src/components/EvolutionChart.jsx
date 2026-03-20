@@ -1,5 +1,7 @@
 import React, { useRef, useState } from 'react';
 
+const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
+
 const EvolutionChart = ({ history }) => {
   const svgRef = useRef(null);
   const [tooltip, setTooltip] = useState(null);
@@ -22,15 +24,26 @@ const EvolutionChart = ({ history }) => {
     );
   }
 
-  const allBest = history.map(h => h.best);
-  const allAvg  = history.map(h => h.avg);
-  const minVal  = Math.min(0, ...allBest, ...allAvg);
-  const maxVal  = Math.max(...allBest, ...allAvg) || 1;
+  const allBest = history.map(h => Number(h.best ?? 0));
+  const allAvg  = history.map(h => Number(h.avg ?? 0));
+  const finiteVals = [...allBest, ...allAvg].filter(Number.isFinite);
+
+  const rawMin = Math.min(...finiteVals);
+  const rawMax = Math.max(...finiteVals);
+  const spread = Math.max(0.001, rawMax - rawMin);
+  const yPad = Math.max(0.25, spread * 0.18);
+  const minVal = rawMin - yPad;
+  const maxVal = rawMax + yPad;
+  const yRange  = Math.max(0.001, maxVal - minVal);
+  const bestVals = allBest;
+  const avgVals = allAvg;
 
   const toX = (i, W) =>
     PAD.left + (i / (history.length - 1)) * (W - PAD.left - PAD.right);
-  const toY = (v, H) =>
-    PAD.top + (1 - (v - minVal) / (maxVal - minVal)) * (H - PAD.top - PAD.bottom);
+  const toY = (v, H) => {
+    const raw = PAD.top + (1 - (v - minVal) / yRange) * (H - PAD.top - PAD.bottom);
+    return clamp(raw, PAD.top, H - PAD.bottom);
+  };
 
   const makePath = (vals, W, H) =>
     vals.map((v, i) => `${i === 0 ? 'M' : 'L'}${toX(i, W)},${toY(v, H)}`).join(' ');
@@ -38,7 +51,7 @@ const EvolutionChart = ({ history }) => {
   const makeAreaPath = (vals, W, H) => {
     const line = makePath(vals, W, H);
     const lastX = toX(vals.length - 1, W);
-    const baseline = toY(0, H);
+    const baseline = H - PAD.bottom;
     return `${line} L${lastX},${baseline} L${toX(0, W)},${baseline} Z`;
   };
 
@@ -69,6 +82,17 @@ const EvolutionChart = ({ history }) => {
         preserveAspectRatio="none"
         className="w-full h-full"
       >
+        <defs>
+          <clipPath id="plotClip">
+            <rect
+              x={PAD.left}
+              y={PAD.top}
+              width={W - PAD.left - PAD.right}
+              height={H - PAD.top - PAD.bottom}
+            />
+          </clipPath>
+        </defs>
+
         <defs>
           <linearGradient id="bestGrad" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.3" />
@@ -110,20 +134,22 @@ const EvolutionChart = ({ history }) => {
           );
         })}
 
-        {/* Avg area + line */}
-        <path d={makeAreaPath(allAvg, W, H)} fill="url(#avgGrad)" />
-        <path
-          d={makePath(allAvg, W, H)}
-          fill="none" stroke="#8b5cf6" strokeWidth="1.5"
-          strokeDasharray="5 4" opacity="0.8"
-        />
+        <g clipPath="url(#plotClip)">
+          {/* Avg area + line */}
+          <path d={makeAreaPath(avgVals, W, H)} fill="url(#avgGrad)" />
+          <path
+            d={makePath(avgVals, W, H)}
+            fill="none" stroke="#8b5cf6" strokeWidth="1.5"
+            strokeDasharray="5 4" opacity="0.8"
+          />
 
-        {/* Best area + line */}
-        <path d={makeAreaPath(allBest, W, H)} fill="url(#bestGrad)" />
-        <path
-          d={makePath(allBest, W, H)}
-          fill="none" stroke="#06b6d4" strokeWidth="2.5"
-        />
+          {/* Best area + line */}
+          <path d={makeAreaPath(bestVals, W, H)} fill="url(#bestGrad)" />
+          <path
+            d={makePath(bestVals, W, H)}
+            fill="none" stroke="#06b6d4" strokeWidth="2.5"
+          />
+        </g>
 
         {/* Tooltip vertical line + dots */}
         {tooltip !== null && (
@@ -134,11 +160,11 @@ const EvolutionChart = ({ history }) => {
               stroke="#ffffff20" strokeWidth="1"
             />
             <circle
-              cx={toX(tooltip.idx, W)} cy={toY(allBest[tooltip.idx], H)}
+              cx={toX(tooltip.idx, W)} cy={toY(bestVals[tooltip.idx], H)}
               r="4" fill="#06b6d4" stroke="#fff" strokeWidth="1.5"
             />
             <circle
-              cx={toX(tooltip.idx, W)} cy={toY(allAvg[tooltip.idx], H)}
+              cx={toX(tooltip.idx, W)} cy={toY(avgVals[tooltip.idx], H)}
               r="3" fill="#8b5cf6" stroke="#fff" strokeWidth="1"
             />
           </>

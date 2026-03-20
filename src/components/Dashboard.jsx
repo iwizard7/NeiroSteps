@@ -21,7 +21,7 @@ const Btn = ({ onClick, active, compact, disabled = false, children, title, styl
 );
 
 export default function Dashboard({
-  evolution, stats, history, generation, isPaused, showAll, speed, populationMode,
+  evolution, stats, history, generation, isPaused, showAll, speed, populationMode, allTimeBest = 0,
   compact = false,
   onTogglePause, onNextGen, onSetShowAll, onSetPopulationMode, onSetSpeed, onSave, onLoad, onOpenStats,
 }) {
@@ -81,8 +81,19 @@ export default function Dashboard({
           </div>
         </div>
 
+        <div style={{
+          borderTop:'1px solid rgba(255,255,255,.05)',
+          borderBottom:'1px solid rgba(255,255,255,.05)',
+          padding: compact ? '3px 0' : '5px 0',
+        }}>
+          <p style={{ ...S.label, fontSize: compact ? 7 : 8 }}>Рекорд за все поколения</p>
+          <p style={{ margin:0, fontSize: compact ? 12 : 14, fontWeight:700, color:'#22d3ee', lineHeight:1.1 }}>
+            {allTimeBest.toFixed(2)}м
+          </p>
+        </div>
+
         {/* Mini-stats */}
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:4, paddingTop: compact ? 4 : 5, borderTop:'1px solid rgba(255,255,255,.05)' }}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:4, paddingTop: compact ? 4 : 5 }}>
           {[['Поп.', evolution.populationSize], ['Мут.','12%'], ['Элита','25%'], ['Ист.', `${history.length}г`]].map(([l,v]) => (
             <div key={l} style={{ textAlign:'center' }}>
               <p style={{ ...S.label, fontSize:8 }}>{l}</p>

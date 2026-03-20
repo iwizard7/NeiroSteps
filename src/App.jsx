@@ -12,6 +12,7 @@ function App() {
   const [generation, setGeneration] = useState(1);
   const [isPaused, setIsPaused]     = useState(false);
   const [stats, setStats]           = useState({ best: 0, avg: 0 });
+  const [allTimeBest, setAllTimeBest] = useState(0);
   const [history, setHistory]       = useState([]);
   const [isReady, setIsReady]       = useState(false);
   const [timeLeft, setTimeLeft]     = useState(GEN_SEC);
@@ -24,9 +25,9 @@ function App() {
 
   const evoRef = useRef(null); // stable ref for callbacks
   const rapierRef = useRef(null);
-  const isCompactLayout = viewportH < 760;
+  const isCompactLayout = viewportH < 820;
   const dashboardHeight = Math.round(
-    Math.min(240, Math.max(isCompactLayout ? 190 : 210, viewportH * 0.28)),
+    Math.min(280, Math.max(isCompactLayout ? 220 : 230, viewportH * 0.32)),
   );
 
   const createSimulation = useCallback((populationSize) => {
@@ -38,6 +39,7 @@ function App() {
     setEvolution(evo);
     setGeneration(1);
     setStats({ best: 0, avg: 0 });
+    setAllTimeBest(0);
     setHistory([]);
     setTimeLeft(GEN_SEC);
     setShowAll(populationSize > 1);
@@ -71,6 +73,7 @@ function App() {
     const data = evo.nextGeneration();
     setGeneration(evo.generation);
     setStats({ best: data.best, avg: data.avg });
+    setAllTimeBest(prev => Math.max(prev, data.best));
     setHistory(prev => [...prev, data]);
     setTimeLeft(GEN_SEC);
   }, []);
@@ -122,7 +125,10 @@ function App() {
         if (!evo) return;
         evo.loadJSON(data);
         setGeneration(evo.generation);
-        setHistory(data.appHistory ?? data.history ?? []);
+        const loadedHistory = data.appHistory ?? data.history ?? [];
+        const loadedBest = loadedHistory.reduce((max, item) => Math.max(max, item.best ?? 0), 0);
+        setHistory(loadedHistory);
+        setAllTimeBest(loadedBest);
         setStats({ best: 0, avg: 0 });
         setTimeLeft(GEN_SEC);
         alert(`✅ Загружено поколение ${evo.generation}`);
@@ -225,7 +231,7 @@ function App() {
       {/* ── Dashboard ── */}
       <div style={{ height: dashboardHeight, flexShrink:0 }}>
         <Dashboard
-          evolution={evolution} stats={stats} history={history}
+          evolution={evolution} stats={stats} history={history} allTimeBest={allTimeBest}
           generation={generation} isPaused={isPaused} showAll={showAll} speed={speed}
           populationMode={populationMode}
           compact={isCompactLayout}
@@ -264,6 +270,7 @@ function Stat({ label, value, color }) {
 
 function StatsModal({ generation, stats, history, populationMode, onClose }) {
   const rows = [...history].sort((a, b) => b.gen - a.gen);
+  const learning = getLearningSignal(history);
 
   return (
     <div
@@ -307,10 +314,11 @@ function StatsModal({ generation, stats, history, populationMode, onClose }) {
           </button>
         </div>
 
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, padding:'12px 14px', borderBottom:'1px solid rgba(255,255,255,.08)' }}>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:8, padding:'12px 14px', borderBottom:'1px solid rgba(255,255,255,.08)' }}>
           <MetricCard label="Текущий лучший" value={`${stats.best.toFixed(2)} м`} color="#06b6d4" />
           <MetricCard label="Текущий средний" value={`${stats.avg.toFixed(2)} м`} color="#8b5cf6" />
           <MetricCard label="Завершено" value={`${history.length} ген.`} color="#94a3b8" />
+          <MetricCard label="Статус обучения" value={learning.label} color={learning.color} />
         </div>
 
         <div style={{ overflow:'auto', padding:'8px 14px 14px' }}>
@@ -358,6 +366,34 @@ function MetricCard({ label, value, color }) {
       <p style={{ fontSize:18, fontWeight:700, margin:'2px 0 0', color }}>{value}</p>
     </div>
   );
+}
+
+function getLearningSignal(history) {
+  if (!history || history.length < 6) {
+    return { label: 'Недостаточно данных', color: '#94a3b8' };
+  }
+
+  const WINDOW = Math.min(12, history.length);
+  const tail = history.slice(-WINDOW);
+  const first = tail[0];
+  const last = tail[tail.length - 1];
+
+  const bestDelta = last.best - first.best;
+  const avgDelta = last.avg - first.avg;
+
+  let improvements = 0;
+  for (let i = 1; i < tail.length; i++) {
+    if (tail[i].best > tail[i - 1].best) improvements++;
+  }
+  const improvementRate = improvements / (tail.length - 1);
+
+  if (bestDelta > 0.45 && avgDelta > 0.2 && improvementRate >= 0.35) {
+    return { label: 'Обучение идет', color: '#10b981' };
+  }
+  if (bestDelta > 0.15 || avgDelta > 0.08 || improvementRate >= 0.2) {
+    return { label: 'Нестабильно, но растет', color: '#f59e0b' };
+  }
+  return { label: 'Плато', color: '#ef4444' };
 }
 
 export default App;

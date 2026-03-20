@@ -142,9 +142,23 @@ const SimulationView = ({ evolution, onFrame, showAll, speed = 1 }) => {
           }
 
           let w = 5, h = 10;
-          if (part === creature.torso)                                   { w = 20; h = 10; }
-          else if (part === creature.lThigh || part === creature.rThigh) { w = 5;  h = 15; }
-          else                                                            { w = 4;  h = 15; }
+          const m = creature.morphology;
+          if (part === creature.torso) {
+            w = Math.max(10, m.torsoHalfWidth * scale);
+            h = 10;
+          } else if (part === creature.tail) {
+            w = 15; h = 3;
+          } else if (part === creature.lArm || part === creature.rArm) {
+            w = 3; h = 10;
+          } else if (part === creature.lForearm || part === creature.rForearm) {
+            w = 2.5; h = 10;
+          } else if (part === creature.lThigh || part === creature.rThigh) {
+            w = 5;
+            h = Math.max(8, m.thighHalfHeight * scale);
+          } else {
+            w = 4;
+            h = Math.max(8, m.shinHalfHeight * scale);
+          }
 
           // Color: best = cyan, others = gradient by rank
           ctx.fillStyle   = isBest ? '#06b6d4' : '#334155';
