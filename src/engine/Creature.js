@@ -94,8 +94,8 @@ export class Creature {
     this.joints[2]?.configureMotorPosition(-0.42, 32.0, 1.4);
     this.joints[3]?.configureMotorPosition(-0.42, 32.0, 1.4);
 
-    // Tail (medium friction)
-    this.tail = this.physics.createPart(x - m.torsoHalfWidth - 0.3, y, 0.3, 0.06, 0.6, 0.4);
+    // Tail (medium friction, much heavier to prevent physics overshoot)
+    this.tail = this.physics.createPart(x - m.torsoHalfWidth - 0.3, y, 0.3, 0.06, 2.5, 0.4);
     this.parts.push(this.tail);
     this.createJoint(
       this.torso, this.tail,
@@ -103,18 +103,18 @@ export class Creature {
       -Math.PI / 3, Math.PI / 3
     );
 
-    // Arms (slippery)
+    // Arms (slippery, denser to prevent joint explosion)
     const armX = x + m.torsoHalfWidth - 0.1;
     const shoulderY = y + torsoH - 0.05;
     const armCenterY = shoulderY - 0.2;
     const forearmCenterY = armCenterY - 0.2 - 0.2;
 
-    this.lArm = this.physics.createPart(armX, armCenterY, 0.06, 0.2, 0.8, 0.1);
-    this.lForearm = this.physics.createPart(armX, forearmCenterY, 0.05, 0.2, 0.8, 0.2);
+    this.lArm = this.physics.createPart(armX, armCenterY, 0.06, 0.2, 2.5, 0.1);
+    this.lForearm = this.physics.createPart(armX, forearmCenterY, 0.05, 0.2, 2.5, 0.2);
     this.parts.push(this.lArm, this.lForearm);
     
-    this.rArm = this.physics.createPart(armX, armCenterY, 0.06, 0.2, 0.8, 0.1);
-    this.rForearm = this.physics.createPart(armX, forearmCenterY, 0.05, 0.2, 0.8, 0.2);
+    this.rArm = this.physics.createPart(armX, armCenterY, 0.06, 0.2, 2.5, 0.1);
+    this.rForearm = this.physics.createPart(armX, forearmCenterY, 0.05, 0.2, 2.5, 0.2);
     this.parts.push(this.rArm, this.rForearm);
 
     // Shoulders (-180 to 180 degrees approx)
@@ -198,12 +198,13 @@ export class Creature {
 
     const targets = [hipL, hipR, kneeL, kneeR, tailAngle, shoulderL, shoulderR, elbowL, elbowR];
     this.joints.forEach((joint, i) => {
-      // Less damping = faster snaps. High stiffness = forceful strokes.
-      let stiffness = 45.0;
-      let damping = 0.5;
+      // Moderate stiffness and damping for physics stability.
+      // Small bodies (arms/tail) explode if stiffness is too high!
+      let stiffness = 12.0;    
+      let damping = 0.8;      
       
-      if (i === 4) { stiffness = 20.0; damping = 0.4; } // tail
-      else if (i > 4) { stiffness = 30.0; damping = 0.5; } // arms
+      if (i === 4) { stiffness = 8.0; damping = 0.6; } // tail
+      else if (i > 4) { stiffness = 10.0; damping = 0.7; } // arms
 
       joint.configureMotorPosition(targets[i], stiffness, damping);
     });
