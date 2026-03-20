@@ -40,7 +40,7 @@ const SimulationView = ({ evolution, onFrame, showAll, speed = 1 }) => {
         evolution.physics.step();
         evolution.update();
       }
-      if (onFrame) onFrame();
+      if (onFrame) onFrame(steps);
 
       const W = canvas.width, H = canvas.height;
 

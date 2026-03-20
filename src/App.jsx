@@ -46,27 +46,6 @@ function App() {
     return evo;
   }, []);
 
-  /* ── Init ── */
-  useEffect(() => {
-    (async () => {
-      try {
-        const RAPIER  = await initPhysics();
-        rapierRef.current = RAPIER;
-        createSimulation(DEFAULT_POPULATION);
-        setIsReady(true);
-      } catch (err) {
-        console.error('Init error:', err);
-        setInitError(err.message);
-      }
-    })();
-  }, [createSimulation]);
-
-  useEffect(() => {
-    const handleResize = () => setViewportH(window.innerHeight);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
   const doNextGen = useCallback(() => {
     const evo = evoRef.current;
     if (!evo) return;
@@ -74,28 +53,93 @@ function App() {
     setGeneration(evo.generation);
     setStats({ best: data.best, avg: data.avg });
     setAllTimeBest(prev => Math.max(prev, data.best));
-    setHistory(prev => [...prev, data]);
+    setHistory(prev => {
+      const newHistory = [...prev, data];
+      // Auto-save
+      try {
+        const payload = JSON.stringify({ ...evo.toJSON(), appHistory: newHistory });
+        localStorage.setItem('neurosteps_autosave', payload);
+      } catch (e) {}
+      return newHistory;
+    });
     setTimeLeft(GEN_SEC);
   }, []);
 
-  /* ── Timer ── */
-  useEffect(() => {
-    if (isPaused || !isReady) return;
-    const id = setInterval(() => {
-      setTimeLeft(t => {
-        const next = +(t - 0.1).toFixed(1);
-        if (next <= 0) { doNextGen(); return GEN_SEC; }
-        return next;
-      });
-    }, 100);
-    return () => clearInterval(id);
-  }, [isPaused, isReady, doNextGen]);
+  const loadFromData = useCallback((data) => {
+    const nextPop = data.populationSize === 1 ? 1 : DEFAULT_POPULATION;
+    setPopulationMode(nextPop);
+    const evo = createSimulation(nextPop);
+    if (!evo) return false;
+    try {
+      evo.loadJSON(data);
+      setGeneration(evo.generation);
+      const loadedHistory = data.appHistory ?? data.history ?? [];
+      const loadedBest = loadedHistory.reduce((max, item) => Math.max(max, item.best ?? 0), 0);
+      setHistory(loadedHistory);
+      setAllTimeBest(loadedBest);
+      setStats({ best: 0, avg: 0 });
+      setTimeLeft(GEN_SEC);
+      return true;
+    } catch (e) {
+      console.warn("Failed to load generic save", e);
+      return false;
+    }
+  }, [createSimulation]);
 
-  const updateStats = useCallback(() => {
-    const evo = evoRef.current;
-    if (!evo) return;
-    setStats(prev => ({ ...prev, best: Math.max(prev.best, evo.bestFitness) }));
+  /* ── Init ── */
+  useEffect(() => {
+    (async () => {
+      try {
+        const RAPIER  = await initPhysics();
+        rapierRef.current = RAPIER;
+        
+        // Try Auto-load
+        let autoLoaded = false;
+        try {
+          const saved = localStorage.getItem('neurosteps_autosave');
+          if (saved) {
+            const data = JSON.parse(saved);
+            autoLoaded = loadFromData(data);
+          }
+        } catch (e) {}
+
+        if (!autoLoaded) {
+          createSimulation(DEFAULT_POPULATION);
+        }
+        setIsReady(true);
+      } catch (err) {
+        console.error('Init error:', err);
+        setInitError(err.message);
+      }
+    })();
+  }, [createSimulation, loadFromData]);
+
+  useEffect(() => {
+    const handleResize = () => setViewportH(window.innerHeight);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  /* ── Timer driven by Physics Steps ── */
+  // The physical timestep is 1/60s. We count frames explicitly in updateStats!
+  const updateStats = useCallback((physicsSteps) => {
+    const evo = evoRef.current;
+    if (!evo || isPaused) return;
+
+    // Update time matching physics engine EXACTLY
+    setTimeLeft(oldTime => {
+      const dt = (1 / 60) * physicsSteps;
+      const nextTime = oldTime - dt;
+      if (nextTime <= 0) {
+        // use setTimeout to jump out of the render cycle
+        setTimeout(doNextGen, 0); 
+        return GEN_SEC;
+      }
+      return nextTime;
+    });
+
+    setStats(prev => ({ ...prev, best: Math.max(prev.best, evo.bestFitness) }));
+  }, [isPaused, doNextGen]);
 
   /* ── Save ── */
   const handleSave = () => {
@@ -119,19 +163,9 @@ function App() {
     reader.onload = (ev) => {
       try {
         const data = JSON.parse(ev.target.result);
-        const nextPop = data.populationSize === 1 ? 1 : DEFAULT_POPULATION;
-        setPopulationMode(nextPop);
-        const evo = createSimulation(nextPop);
-        if (!evo) return;
-        evo.loadJSON(data);
-        setGeneration(evo.generation);
-        const loadedHistory = data.appHistory ?? data.history ?? [];
-        const loadedBest = loadedHistory.reduce((max, item) => Math.max(max, item.best ?? 0), 0);
-        setHistory(loadedHistory);
-        setAllTimeBest(loadedBest);
-        setStats({ best: 0, avg: 0 });
-        setTimeLeft(GEN_SEC);
-        alert(`✅ Загружено поколение ${evo.generation}`);
+        if (loadFromData(data)) {
+          alert(`✅ Загружено поколение ${data.generation}`);
+        }
       } catch (err) {
         alert('Ошибка загрузки: ' + err.message);
       }
