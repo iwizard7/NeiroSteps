@@ -85,9 +85,8 @@ export class EvolutionManager {
   }
 
   _scoreCreature(creature) {
-    const displacement = creature.torso.translation().x - creature.spawnPos.x;
-    const backwardPenalty = Math.max(0, -displacement) * 0.8;
-    return creature.fitness - backwardPenalty;
+    if (this.populationSize === 1) return this.bestSoloFitness;
+    return creature.fitness;
   }
 
   _initPopulation(brains = null, morphologies = null) {
