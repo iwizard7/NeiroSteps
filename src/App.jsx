@@ -4,7 +4,7 @@ import { EvolutionManager } from './engine/Evolution';
 import SimulationView from './components/SimulationView';
 import Dashboard from './components/Dashboard';
 
-const GEN_SEC = 15;
+const GEN_SEC = 30;
 const DEFAULT_POPULATION = 12;
 
 function App() {
